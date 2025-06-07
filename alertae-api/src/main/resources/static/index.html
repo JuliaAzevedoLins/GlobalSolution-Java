@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alertae - Mapa de Alertas</title>
+    <!-- Importa o CSS do Leaflet para o mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Importa o JS do Leaflet para o mapa -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Centraliza horizontalmente o conteúdo */
+        }
+        header {
+            width: 80%;
+            max-width: 1200px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        header img {
+            max-width: 150px; /* Ajuste o tamanho máximo do logo conforme necessário */
+            height: auto;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #333;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .swagger-link {
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+        .swagger-link a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .swagger-link a:hover {
+            text-decoration: underline;
+        }
+        #map {
+            height: 600px; /* Altura fixa do mapa */
+            width: 80%; /* Largura do mapa (80% da largura do container) */
+            max-width: 1200px; /* Largura máxima para o mapa */
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 0; /* Ajustado para melhor espaçamento após o link */
+        }
+        .loading-message {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <!-- Logo do projeto -->
+        <img src="/images/logo.png" alt="Logo Alertae">
+        <h1>Alertae - Mapa de Alertas</h1>
+        <!-- Link para a documentação Swagger da API -->
+        <p class="swagger-link">Para testar o CRUD da API, <a href="/swagger-ui.html" target="_blank">clique aqui</a>.</p>
+    </header>
+
+    <!-- Container do mapa -->
+    <div id="map"></div>
+    <!-- Mensagem de carregamento ou erro -->
+    <div class="loading-message" id="loadingMessage">Carregando alertas no mapa...</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializa o mapa Leaflet centralizado em São Paulo
+            const map = L.map('map').setView([-23.5505, -46.6333], 10);
+
+            // Garante que o mapa seja renderizado corretamente
+            map.invalidateSize();
+
+            // Adiciona a camada de tiles do OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Busca os alertas cadastrados na API backend
+            fetch('/api/v1/alerts')
+                .then(response => {
+                    // Verifica se a resposta foi bem-sucedida (status 200 OK)
+                    if (!response.ok) {
+                        throw new Error('Erro ao buscar alertas: ' + response.statusText);
+                    }
+                    // Converte a resposta para JSON
+                    return response.json();
+                })
+                .then(alerts => {
+                    // Oculta a mensagem de carregamento
+                    document.getElementById('loadingMessage').style.display = 'none';
+
+                    // Verifica se há alertas e se o array não está vazio
+                    if (alerts && alerts.length > 0) {
+                        alerts.forEach(alert => {
+                            // Verifica se as coordenadas lat e longitude existem
+                            if (alert.lat !== undefined && alert.longitude !== undefined && alert.lat !== null && alert.longitude !== null) {
+                                // Adiciona um marcador no mapa com as coordenadas do alerta
+                                L.marker([alert.lat, alert.longitude])
+                                    .addTo(map)
+                                    // Adiciona um popup com informações do alerta ao clicar no marcador
+                                    .bindPopup(`<b>${alert.title}</b><br>${alert.message}<br>Email: ${alert.emailNotification}`);
+                            } else {
+                                // Caso o alerta não tenha coordenadas válidas
+                                console.warn(`Alerta sem coordenadas válidas: ${alert.title}`);
+                            }
+                        });
+                    } else {
+                        // Se nenhum alerta for encontrado, exibe uma mensagem apropriada
+                        console.log("Nenhum alerta encontrado.");
+                        document.getElementById('loadingMessage').innerText = "Nenhum alerta cadastrado ainda.";
+                        document.getElementById('loadingMessage').style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    // Em caso de erro na requisição, exibe uma mensagem de erro
+                    console.error('Erro ao carregar alertas:', error);
+                    document.getElementById('loadingMessage').innerText = "Erro ao carregar alertas: " + error.message;
+                    document.getElementById('loadingMessage').style.color = "red";
+                    document.getElementById('loadingMessage').style.display = 'block';
+                });
+        });
+    </script>
+</body>
+</html>
